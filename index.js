@@ -63,7 +63,8 @@ app.post('/slack/events', async (req, res) => {
 
 app.post('/slack/briefing', async (req, res) => {
   const { channel_id, text, user_name } = req.body;
-  if (!text || !text.trim()) {
+  console.log('briefing text received:', JSON.stringify(req.body));
+if (!text || !text.trim()) {
     return res.json({ response_type: 'ephemeral', text: 'Please provide briefing content. Usage: /briefing [content]' });
   }
   briefings[channel_id] = text.trim();
