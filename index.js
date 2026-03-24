@@ -17,14 +17,18 @@ async function askClaude(briefing, request) {
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-5',
       max_tokens: 2000,
       system: 'You are Ailey, a senior performance marketer. Channels: Google Ads, Meta, YouTube, TikTok.\n\nBriefing data from the team:\n' + briefing + '\n\nRules:\n- Use Slack markdown (*bold*, bullet points)\n- Be specific with numbers and rationale\n- Give actionable suggestions\n- Mark assumptions with (추론)',
       messages: [{ role: 'user', content: request }]
     })
   });
   const data = await res.json();
-  return data.content[0].text;
+  console.log('Claude response:', JSON.stringify(data));
+if (!data.content || !data.content[0]) {
+  return 'Error: ' + JSON.stringify(data);
+}
+return data.content[0].text;
 }
 
 async function sendSlack(channel, text, thread_ts) {
