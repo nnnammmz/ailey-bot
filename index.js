@@ -6,7 +6,7 @@ app.use(express.urlencoded({ extended: true })); //
 const SLACK_TOKEN = process.env.SLACK_TOKEN;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 
-const briefings = {};
+const briefings = {}; // { "Stack Up": "내용", "다크사가": "내용" }
 
 async function askClaude(briefing, request) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -64,6 +64,16 @@ app.post('/slack/events', async (req, res) => {
     const answer = await askClaude(briefing, text);
     await sendSlack(channel, answer, event.ts);
   }
+ {
+    const briefing = briefings[channel];
+    if (!briefing) {
+      await sendSlack(channel, 'No briefing found. Please use /briefing to register your campaign info first.', event.ts);
+      return;
+    }
+    await sendSlack(channel, 'Ailey is working on it...', event.ts);
+    const answer = await askClaude(briefing, text);
+    await sendSlack(channel, answer, event.ts);
+  }
 });
 
 app.post('/slack/briefing', async (req, res) => {
@@ -72,7 +82,12 @@ app.post('/slack/briefing', async (req, res) => {
 if (!text || !text.trim()) {
     return res.json({ response_type: 'ephemeral', text: 'Please provide briefing content. Usage: /briefing [content]' });
   }
-  briefings[channel_id] = text.trim();
+  const productName = text.split('|')[0].trim();
+briefings[productName] = text.trim();
+res.json({
+  response_type: 'in_channel',
+  text: '*' + user_name + '*님이 *' + productName + '* 브리핑을 등록했어요!\n\n*Briefing:*\n' + text.trim() + '\n\n@Ailey에게 ' + productName + ' 이름과 함께 요청하세요!'
+});
   res.json({
     response_type: 'in_channel',
     text: '*' + user_name + '* registered a briefing!\n\n*Briefing:*\n' + text.trim() + '\n\nNow mention @Ailey with your request!'
