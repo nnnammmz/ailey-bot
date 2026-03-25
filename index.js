@@ -1,12 +1,12 @@
 const express = require('express');
 const app = express();
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); //
+app.use(express.urlencoded({ extended: true }));
 
 const SLACK_TOKEN = process.env.SLACK_TOKEN;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 
-const briefings = {}; // { "Stack Up": "내용", "다크사가": "내용" }
+const briefings = {};
 
 async function askClaude(briefing, request) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -25,10 +25,10 @@ async function askClaude(briefing, request) {
   });
   const data = await res.json();
   console.log('Claude response:', JSON.stringify(data));
-if (!data.content || !data.content[0]) {
-  return 'Error: ' + JSON.stringify(data);
-}
-return data.content[0].text;
+  if (!data.content || !data.content[0]) {
+    return 'Error: ' + JSON.stringify(data);
+  }
+  return data.content[0].text;
 }
 
 async function sendSlack(channel, text, thread_ts) {
@@ -55,52 +55,46 @@ app.post('/slack/events', async (req, res) => {
   const text = (event.text || '').replace(/<@[^>]+>/g, '').trim();
 
   if (event.type === 'app_mention') {
-    const briefing = briefings[channel];
-    if (!briefing) {
-      await sendSlack(channel, 'No briefing found. Please use /briefing to register your campaign info first.', event.ts);
+    const matchedKey = Object.keys(briefings).find(name =>
+      text.toLowerCase().includes(name.toLowerCase())
+    );
+
+    if (!matchedKey) {
+      const keyList = Object.keys(briefings).join(', ');
+      await sendSlack(channel,
+        'No matching briefing found.\nRegistered: ' + (keyList || 'none') + '\nUsage: /briefing [제품명] | [내용]',
+        event.ts
+      );
       return;
     }
+
     await sendSlack(channel, 'Ailey is working on it...', event.ts);
-    const answer = await askClaude(briefing, text);
-    await sendSlack(channel, answer, event.ts);
-  }
- {
-    const briefing = briefings[channel];
-    if (!briefing) {
-      await sendSlack(channel, 'No briefing found. Please use /briefing to register your campaign info first.', event.ts);
-      return;
-    }
-    await sendSlack(channel, 'Ailey is working on it...', event.ts);
-    const answer = await askClaude(briefing, text);
+    const answer = await askClaude(briefings[matchedKey], text);
     await sendSlack(channel, answer, event.ts);
   }
 });
 
 app.post('/slack/briefing', async (req, res) => {
   const { channel_id, text, user_name } = req.body;
-  console.log('briefing text received:', JSON.stringify(req.body));
-if (!text || !text.trim()) {
-    return res.json({ response_type: 'ephemeral', text: 'Please provide briefing content. Usage: /briefing [content]' });
+  console.log('briefing received:', JSON.stringify(req.body));
+  if (!text || !text.trim()) {
+    return res.json({ response_type: 'ephemeral', text: 'Please provide briefing content. Usage: /briefing [제품명] | [내용]' });
   }
   const productName = text.split('|')[0].trim();
-briefings[productName] = text.trim();
-res.json({
-  response_type: 'in_channel',
-  text: '*' + user_name + '*님이 *' + productName + '* 브리핑을 등록했어요!\n\n*Briefing:*\n' + text.trim() + '\n\n@Ailey에게 ' + productName + ' 이름과 함께 요청하세요!'
-});
+  briefings[productName] = text.trim();
   res.json({
     response_type: 'in_channel',
-    text: '*' + user_name + '* registered a briefing!\n\n*Briefing:*\n' + text.trim() + '\n\nNow mention @Ailey with your request!'
+    text: '*' + productName + '* 브리핑이 등록되었습니다 ✅'
   });
 });
 
 app.post('/slack/briefing-check', async (req, res) => {
   const { channel_id } = req.body;
-  const briefing = briefings[channel_id];
-  if (!briefing) {
-    return res.json({ response_type: 'ephemeral', text: 'No briefing registered. Use /briefing first.' });
-  }
-  res.json({ response_type: 'ephemeral', text: '*Current briefing:*\n' + briefing });
+  const keyList = Object.keys(briefings).join(', ');
+  res.json({
+    response_type: 'ephemeral',
+    text: '등록된 브리핑: ' + (keyList || '없음')
+  });
 });
 
 app.listen(process.env.PORT || 3000, () => console.log('Ailey running'));
