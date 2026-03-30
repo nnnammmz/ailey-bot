@@ -9,26 +9,30 @@ const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const briefings = {};
 
 async function askClaude(briefing, request) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_KEY,
-      'anthropic-version': '2023-06-01'
+      'Authorization': 'Bearer ' + ANTHROPIC_KEY
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
+      model: 'llama-3.3-70b-versatile',
       max_tokens: 2000,
-      system: 'You are Ailey, a senior performance marketer. Channels: Google Ads, Meta, YouTube, TikTok.\n\nBriefing data from the team:\n' + briefing + '\n\nRules:\n- Use Slack markdown (*bold*, bullet points)\n- Be specific with numbers and rationale\n- Give actionable suggestions\n- Mark assumptions with (추론)',
-      messages: [{ role: 'user', content: request }]
+      messages: [
+        {
+          role: 'system',
+          content: 'You are Ailey, a senior performance marketer. Channels: Google Ads, Meta, YouTube, TikTok.\n\nBriefing data from the team:\n' + briefing + '\n\nRules:\n- Use Slack markdown (*bold*, bullet points)\n- Be specific with numbers and rationale\n- Give actionable suggestions\n- Mark assumptions with (추론)'
+        },
+        { role: 'user', content: request }
+      ]
     })
   });
   const data = await res.json();
-  console.log('Claude response:', JSON.stringify(data));
-  if (!data.content || !data.content[0]) {
+  console.log('Groq response:', JSON.stringify(data));
+  if (!data.choices || !data.choices[0]) {
     return 'Error: ' + JSON.stringify(data);
   }
-  return data.content[0].text;
+  return data.choices[0].message.content;
 }
 
 async function sendSlack(channel, text, thread_ts) {
