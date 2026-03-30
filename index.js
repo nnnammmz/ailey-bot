@@ -16,12 +16,12 @@ async function askClaude(briefing, request) {
       'Authorization': 'Bearer ' + ANTHROPIC_KEY
     },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model: 'mixtral-8x7b-32768',
       max_tokens: 2000,
       messages: [
         {
           role: 'system',
-          content: 'You are Ailey, a senior performance marketer. Channels: Google Ads, Meta, YouTube, TikTok.\n\nBriefing data from the team:\n' + briefing + '\n\nRules:\n- Use Slack markdown (*bold*, bullet points)\n- Be specific with numbers and rationale\n- Give actionable suggestions\n- Mark assumptions with (추론)'
+          content: 'You are Ailey, a senior performance marketer. Channels: Google Ads, Meta, YouTube, TikTok.\n\nBriefing data from the team:\n' + briefing + '\n\nRules:\n- Always respond in Korean\n- Use Slack formatting only: *bold* for emphasis, • for bullet points\n- Never use ### or ** markdown\n- Be specific with numbers and rationale\n- Give actionable suggestions\n- Mark assumptions with (추론)'
         },
         { role: 'user', content: request }
       ]
