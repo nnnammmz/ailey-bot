@@ -9,6 +9,22 @@ const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const briefings = {};
 
 async function askClaude(briefing, request) {
+  const systemPrompt = [
+    '당신은 Ailey라는 이름의 시니어 퍼포먼스 마케터입니다.',
+    '주요 채널: Google Ads, 메타, 유튜브, 틱톡.',
+    '',
+    '팀이 등록한 브리핑 데이터:',
+    briefing,
+    '',
+    '반드시 지켜야 할 규칙:',
+    '- 반드시 한국어로만 답변하세요. 절대 다른 언어를 섞지 마세요.',
+    '- 슬랙 포맷만 사용: 강조는 *텍스트*, 목록은 • 사용',
+    '- ### ** 같은 마크다운 절대 사용 금지',
+    '- 구체적인 수치와 근거 포함',
+    '- 실행 가능한 제안 위주',
+    '- 브리핑에 없는 내용은 (추론) 표시'
+  ].join('\n');
+
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -19,9 +35,7 @@ async function askClaude(briefing, request) {
       model: 'llama-3.3-70b-versatile',
       max_tokens: 2000,
       messages: [
-        {
-          role: 'system',
-         content: '당신은 Ailey라는 이름의 시니어 퍼포먼스 마케터입니다. 주요 채널: Google Ads, 메타, 유튜브, 틱톡.\n\n팀이 등록한 브리핑 데이터:\n' + briefing + '\n\n반드시 지켜야 할 규칙:\n- 반드시 한국어로만 답변하세요. 절대 다른 언어를 섞지 마세요.\n- 슬랙 포맷만 사용: 강조는 *텍스트*, 목록은 • 사용\n- ### ** 같은 마크다운 절대 사용 금지\n- 구체적인 수치와 근거 포함\n- 실행 가능한 제안 위주\n- 브리핑에 없는 내용은 (추론) 표시'
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: request }
       ]
     })
@@ -65,13 +79,13 @@ app.post('/slack/events', async (req, res) => {
     if (!matchedKey) {
       const keyList = Object.keys(briefings).join(', ');
       await sendSlack(channel,
-        'No matching briefing found.\nRegistered: ' + (keyList || 'none') + '\nUsage: /briefing [제품명] | [내용]',
+        '매칭되는 브리핑이 없어요.\n등록된 브리핑: ' + (keyList || '없음') + '\n사용법: /briefing [제품명] | [내용]',
         event.ts
       );
       return;
     }
 
-    await sendSlack(channel, 'Ailey is working on it...', event.ts);
+    await sendSlack(channel, 'Ailey가 작성 중이에요...', event.ts);
     const answer = await askClaude(briefings[matchedKey], text);
     await sendSlack(channel, answer, event.ts);
   }
@@ -79,9 +93,8 @@ app.post('/slack/events', async (req, res) => {
 
 app.post('/slack/briefing', async (req, res) => {
   const { channel_id, text, user_name } = req.body;
-  console.log('briefing received:', JSON.stringify(req.body));
   if (!text || !text.trim()) {
-    return res.json({ response_type: 'ephemeral', text: 'Please provide briefing content. Usage: /briefing [제품명] | [내용]' });
+    return res.json({ response_type: 'ephemeral', text: '브리핑 내용을 입력해 주세요. 사용법: /briefing [제품명] | [내용]' });
   }
   const productName = text.split('|')[0].trim();
   briefings[productName] = text.trim();
@@ -92,7 +105,6 @@ app.post('/slack/briefing', async (req, res) => {
 });
 
 app.post('/slack/briefing-check', async (req, res) => {
-  const { channel_id } = req.body;
   const keyList = Object.keys(briefings).join(', ');
   res.json({
     response_type: 'ephemeral',
